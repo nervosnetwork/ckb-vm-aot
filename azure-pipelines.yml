@@ -1,0 +1,307 @@
+trigger:
+  branches:
+    include:
+    - '*'
+  tags:
+    include:
+    - '*'
+
+variables:
+  RUST_BACKTRACE: full
+  TEST_SUITE_COMMIT: 3b173b04daa3fa7648cc7b8d5ad28cee01febb73
+
+jobs:
+  - job: WinCI
+    pool:
+      vmImage: 'windows-2019'
+    steps:
+      - template: devtools/azure/windows-dependencies.yml
+        parameters:
+          rustup_toolchain: '1.61.0-x86_64-pc-windows-msvc'
+      - script: make ci-aot
+        displayName: Run unit tests
+
+  - job: WinCIChaos
+    pool:
+      vmImage: 'windows-2019'
+    steps:
+      - template: devtools/azure/windows-dependencies.yml
+        parameters:
+          rustup_toolchain: '1.61.0-x86_64-pc-windows-msvc'
+      - script: make ci-aot-chaos
+        displayName: Run unit tests with chaos
+
+  - job: OSXCI
+    pool:
+      vmImage: 'macOS-11'
+    steps:
+      - template: devtools/azure/osx-dependencies.yml
+        parameters:
+          rustup_toolchain: '1.61.0-x86_64-apple-darwin'
+      - script: make ci-aot
+        displayName: Run unit tests
+
+  - job: OSXCIChaos
+    pool:
+      vmImage: 'macOS-11'
+    steps:
+      - template: devtools/azure/osx-dependencies.yml
+        parameters:
+          rustup_toolchain: '1.61.0-x86_64-apple-darwin'
+      - script: make ci-aot-chaos
+        displayName: Run unit tests with chaos
+
+  - job: LinuxCIDeps
+    pool:
+      vmImage: 'ubuntu-20.04'
+    steps:
+      - template: devtools/azure/linux-dependencies.yml
+        parameters:
+          rustup_toolchain: '1.61.0-x86_64-unknown-linux-gnu'
+      - script: cargo install cargo-deny --locked --version 0.12.1
+        displayName: Install cargo deny
+      - script: make ci-deps
+        displayName: Run ci-deps
+
+  - job: LinuxCIQuick
+    pool:
+      vmImage: 'ubuntu-20.04'
+    steps:
+      - template: devtools/azure/linux-dependencies.yml
+        parameters:
+          rustup_toolchain: '1.61.0-x86_64-unknown-linux-gnu'
+      - script: make ci-quick
+        displayName: Run ci-quick
+
+  - job: LinuxCIGenerated
+    pool:
+      vmImage: 'ubuntu-20.04'
+    steps:
+      - template: devtools/azure/linux-dependencies.yml
+        parameters:
+          rustup_toolchain: '1.61.0-x86_64-unknown-linux-gnu'
+      - script: make ci-generated
+        displayName: Run ci-generated
+
+  - job: LinuxCheck
+    pool:
+      vmImage: 'ubuntu-20.04'
+    steps:
+      - template: devtools/azure/linux-dependencies.yml
+        parameters:
+          rustup_toolchain: '1.61.0-x86_64-unknown-linux-gnu'
+      - script: make check
+        displayName: Run check
+
+  - job: LinuxCIAOT
+    pool:
+      vmImage: 'ubuntu-20.04'
+    steps:
+      - template: devtools/azure/linux-dependencies.yml
+        parameters:
+          rustup_toolchain: '1.61.0-x86_64-unknown-linux-gnu'
+      - script: make ci-aot
+        displayName: Run ci-aot
+
+  - job: LinuxCIASM
+    pool:
+      vmImage: 'ubuntu-20.04'
+    steps:
+      - template: devtools/azure/linux-dependencies.yml
+        parameters:
+          rustup_toolchain: '1.61.0-x86_64-unknown-linux-gnu'
+      - script: make ci-asm
+        displayName: Run ci-asm
+
+  - job: LinuxCI
+    pool:
+      vmImage: 'ubuntu-20.04'
+    steps:
+      - template: devtools/azure/linux-dependencies.yml
+        parameters:
+          rustup_toolchain: '1.61.0-x86_64-unknown-linux-gnu'
+      - script: make ci
+        displayName: Run ci
+
+  - job: LinuxCIASMChaos
+    pool:
+      vmImage: 'ubuntu-20.04'
+    steps:
+      - template: devtools/azure/linux-dependencies.yml
+        parameters:
+          rustup_toolchain: '1.61.0-x86_64-unknown-linux-gnu'
+      - script: make ci-asm-chaos
+        displayName: Run ci-asm-chaos
+
+  - job: LinuxCIAOTChaos
+    pool:
+      vmImage: 'ubuntu-20.04'
+    steps:
+      - template: devtools/azure/linux-dependencies.yml
+        parameters:
+          rustup_toolchain: '1.61.0-x86_64-unknown-linux-gnu'
+      - script: make ci-aot-chaos
+        displayName: Run ci-aot-chaos
+
+  - job: LinuxCIMiri
+    pool:
+      vmImage: 'ubuntu-20.04'
+    steps:
+      - script: rm rust-toolchain
+      - template: devtools/azure/linux-dependencies.yml
+        parameters:
+          rustup_toolchain: 'nightly-2022-07-16'
+      - script: make ci-miri
+        displayName: Run ci-miri
+
+  - job: LinuxTestSuite
+    pool:
+      vmImage: 'ubuntu-18.04'
+    steps:
+      - template: devtools/azure/linux-dependencies.yml
+        parameters:
+          rustup_toolchain: '1.61.0-x86_64-unknown-linux-gnu'
+      - script: |
+          sudo apt install -y git \
+                              build-essential \
+                              autoconf \
+                              automake \
+                              autotools-dev \
+                              libmpc-dev \
+                              libmpfr-dev \
+                              libgmp-dev \
+                              gawk \
+                              libtool \
+                              patchutils \
+                              libexpat-dev \
+                              zlib1g-dev
+      - script: |
+          git clone https://github.com/nervosnetwork/ckb-vm-test-suite &&
+          ln -snf .. ckb-vm-test-suite/ckb-vm &&
+          docker run --rm -v `pwd`:/code nervos/ckb-riscv-gnu-toolchain:bionic-20210804 cp -r /riscv /code/riscv &&
+          cd ckb-vm-test-suite &&
+          git checkout $TEST_SUITE_COMMIT &&
+          git submodule update --init --recursive &&
+          RISCV=`pwd`/../riscv ./test.sh --enable-aot
+        displayName: Run test suite
+
+  - job: LinuxFuzz
+    pool:
+      vmImage: 'ubuntu-20.04'
+    steps:
+      - script: rm rust-toolchain
+      - template: devtools/azure/linux-dependencies.yml
+        parameters:
+          rustup_toolchain: 'nightly-2022-07-16'
+      - script: |
+          rustup install nightly
+          cargo +nightly install cargo-fuzz
+          make fuzz
+        displayName: Run fuzz
+
+  - job: LinuxArm64AsmCI
+    pool:
+      vmImage: 'ubuntu-20.04'
+    steps:
+      - template: devtools/azure/linux-dependencies.yml
+        parameters:
+          rustup_toolchain: '1.61.0-x86_64-unknown-linux-gnu'
+      - script: |
+          sudo apt-get install -y qemu binfmt-support qemu-user-static
+          docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+          echo "Comment: updating crates.io cause oom in arm docker, use -v /usr/local/cargo/registry/:/usr/local/cargo/registry/ to skip this problem"
+          cargo update
+          docker run --rm -v `pwd`:/code -v /home/vsts/.cargo/registry/:/usr/local/cargo/registry/ -t arm64v8/rust bash -c "cd /code && cargo test --features=asm"
+        displayName: Run ci-asm on arm64 machines
+
+  - job: LinuxArm64TestSuite
+    pool:
+      vmImage: 'ubuntu-20.04'
+    steps:
+      - template: devtools/azure/linux-dependencies.yml
+        parameters:
+          rustup_toolchain: '1.61.0-x86_64-unknown-linux-gnu'
+      - script: |
+          sudo apt update -y &&
+          sudo apt install -y git \
+                              build-essential \
+                              autoconf \
+                              automake \
+                              autotools-dev \
+                              libmpc-dev \
+                              libmpfr-dev \
+                              libgmp-dev \
+                              gawk \
+                              libtool \
+                              patchutils \
+                              libexpat-dev \
+                              zlib1g-dev
+      - script: |
+          git clone https://github.com/nervosnetwork/ckb-vm-test-suite &&
+          ln -snf .. ckb-vm-test-suite/ckb-vm &&
+          docker run --rm -v `pwd`:/code nervos/ckb-riscv-gnu-toolchain:bionic-20210804 cp -r /riscv /code/riscv &&
+          cd ckb-vm-test-suite &&
+          git checkout $TEST_SUITE_COMMIT &&
+          git submodule update --init --recursive &&
+          RISCV=`pwd`/../riscv ./test.sh --build-only &&
+          cd ..
+        displayName: Build test suite
+      - script: |
+          sudo apt-get install -y qemu binfmt-support qemu-user-static
+          sudo apt-get install -y gcc-multilib
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu clang
+          rustup target add aarch64-unknown-linux-gnu
+          docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+          cd ckb-vm-test-suite &&
+          cd binary && cargo build --release --target=aarch64-unknown-linux-gnu && cd .. &&
+          cd .. &&
+          docker run --rm -v `pwd`:/code -t arm64v8/rust bash -c "RISCV=/dummy /code/ckb-vm-test-suite/test.sh --prebuilt-prefix aarch64-unknown-linux-gnu"
+        displayName: Run test suite on arm64 machines
+
+  - job: LinuxCodeCoverage
+    condition: eq(variables['Build.SourceBranch'], 'refs/heads/release')
+    pool:
+      vmImage: 'ubuntu-18.04'
+    steps:
+      - template: devtools/azure/linux-dependencies.yml
+        parameters:
+          rustup_toolchain: '1.61.0-x86_64-unknown-linux-gnu'
+      - script: |
+          sudo apt install -y git \
+                              build-essential \
+                              autoconf \
+                              automake \
+                              autotools-dev \
+                              libmpc-dev \
+                              libmpfr-dev \
+                              libgmp-dev \
+                              gawk \
+                              libtool \
+                              patchutils \
+                              libexpat-dev \
+                              binutils-dev \
+                              libcurl4-openssl-dev \
+                              zlib1g-dev \
+                              libdw-dev \
+                              libiberty-dev
+      - script: |
+          wget https://github.com/SimonKagstrom/kcov/archive/v36.tar.gz &&
+          tar xzf v36.tar.gz &&
+          cd kcov-36 &&
+          mkdir build &&
+          cd build &&
+          cmake .. &&
+          make &&
+          sudo make install &&
+          cd ../.. &&
+          rm -rf kcov-36 v36.tar.gz &&
+          git clone https://github.com/nervosnetwork/ckb-vm-test-suite &&
+          ln -snf .. ckb-vm-test-suite/ckb-vm &&
+          docker run --rm -v `pwd`:/code nervos/ckb-riscv-gnu-toolchain:bionic-20210804 cp -r /riscv /code/riscv &&
+          cd ckb-vm-test-suite && git checkout $TEST_SUITE_COMMIT && git submodule update --init --recursive &&
+          RISCV=`pwd`/../riscv ./test.sh --coverage &&
+          cd .. &&
+          make cov &&
+          bash <(curl -s https://codecov.io/bash) &&
+          echo "Uploaded code coverage"
+        displayName: Run code coverage
