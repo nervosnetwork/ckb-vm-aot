@@ -1,13 +1,20 @@
-// Due to this bug: https://github.com/rust-lang/cargo/issues/4866, we cannot
-// specify different features based on different targets now in cargo file. We
-// have to keep features always on, and do conditional compilation within the
-// source code
-
 use cc::Build;
+use std::env;
 
 fn main() {
+    let target_family = env::var("CARGO_CFG_TARGET_FAMILY").unwrap_or_default();
+    let target_arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap_or_default();
     let mut build = Build::new();
-    build.file("src/aot.x64.compiled.c");
-    build.include("dynasm");
-    build.compile("aot");
+    if target_arch == "x86_64" && target_family == "windows" {
+        build.file("src/aot.x64.win.compiled.c");
+        build.include("dynasm");
+        build.compile("aot");
+        println!("cargo:rustc-cfg=has_aot");
+    }
+    if target_arch == "x86_64" && target_family == "unix" {
+        build.file("src/aot.x64.compiled.c");
+        build.include("dynasm");
+        build.compile("aot");
+        println!("cargo:rustc-cfg=has_aot");
+    }
 }

@@ -1,6 +1,7 @@
-use crate::ast::{ActionOp1, ActionOp2, SignActionOp2, Value};
-use crate::{AotError, Write};
+use crate::error::AotError;
+use crate::label_gather::Write;
 use ckb_vm::error::Error;
+use ckb_vm::instructions::ast::{ActionOp1, ActionOp2, SignActionOp2, Value};
 use libc::{c_int, c_void, size_t};
 use std::collections::HashMap;
 

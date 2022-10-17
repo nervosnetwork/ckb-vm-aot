@@ -1,8 +1,5 @@
-#![cfg(has_aot)]
-
 use ckb_vm::{
     machine::{
-        aot::AotCompilingMachine,
         asm::{AsmCoreMachine, AsmMachine},
         CoreMachine, VERSION0, VERSION1,
     },
@@ -11,6 +8,7 @@ use ckb_vm::{
     Debugger, DefaultMachineBuilder, Error, Instruction, Register, SupportMachine, Syscalls,
     ISA_IMC,
 };
+use ckb_vm_aot::AotCompilingMachine;
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::Arc;
 use std::{fs, u64};
@@ -290,7 +288,10 @@ pub fn test_aot_load_elf_section_crash_64() {
         .unwrap()
         .into();
     let result = AotCompilingMachine::load(&buffer, None, ISA_IMC, VERSION0);
-    assert_eq!(result.err(), Some(Error::AotSectionIsEmpty));
+    assert_eq!(
+        result.err().unwrap().to_string(),
+        "external error: aot error: section is empty".to_string()
+    );
 }
 
 #[test]

@@ -1,1 +1,5 @@
+/Cargo.lock
+/ckb-vm-test-suite
+/riscv
+/riscv-tests
 /target
