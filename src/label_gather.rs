@@ -2,16 +2,27 @@ use crate::emitter::Emitter;
 use crate::error::AotError;
 use ckb_vm::decoder::build_decoder;
 use ckb_vm::instructions::ast::Value;
+use ckb_vm::instructions::{blank_instruction, execute_instruction, extract_opcode};
 use ckb_vm::instructions::{
     execute, instruction_length, is_basic_block_end_instruction, is_slowpath_instruction,
     Instruction,
 };
-use ckb_vm::machine::{asm::AotCode, elf_adaptor, SupportMachine, VERSION1};
+use ckb_vm::machine::asm::{ckb_vm_asm_labels, ckb_vm_x64_execute, AsmCoreMachine};
+use ckb_vm::machine::{elf_adaptor, DefaultMachine, SupportMachine, VERSION0, VERSION1};
 use ckb_vm::{
     Bytes, CoreMachine, DefaultCoreMachine, Error, FlatMemory, InstructionCycleFunc, Machine,
     Memory, Register, RISCV_MAX_MEMORY,
 };
-use memmap::MmapMut;
+use ckb_vm_definitions::{
+    asm::{
+        calculate_slot, Trace, RET_CYCLES_OVERFLOW, RET_DECODE_TRACE, RET_DYNAMIC_JUMP, RET_EBREAK,
+        RET_ECALL, RET_INVALID_PERMISSION, RET_MAX_CYCLES_EXCEEDED, RET_OUT_OF_BOUND, RET_SLOWPATH,
+        TRACE_ITEM_LENGTH,
+    },
+    instructions::OP_CUSTOM_TRACE_END,
+    ISA_MOP,
+};
+use memmap::{Mmap, MmapMut};
 use scroll::Pread;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
@@ -427,6 +438,20 @@ impl Memory for LabelGatheringMachine {
     }
 }
 
+pub struct AotCode {
+    pub code: Mmap,
+    /// Labels that map RISC-V addresses to offsets into the compiled x86_64
+    /// assembly code. This can be used as entrypoints to start executing in
+    /// AOT code.
+    pub labels: HashMap<u64, u32>,
+}
+
+impl AotCode {
+    pub fn base_address(&self) -> u64 {
+        self.code.as_ptr() as u64
+    }
+}
+
 pub struct AotCompilingMachine {
     isa: u8,
     version: u32,
@@ -779,5 +804,106 @@ impl Memory for AotCompilingMachine {
             value: value.clone(),
         });
         Ok(())
+    }
+}
+
+pub struct AotMachine<'a> {
+    pub machine: DefaultMachine<'a, Box<AsmCoreMachine>>,
+    pub aot_code: Option<&'a AotCode>,
+}
+
+impl<'a> AotMachine<'a> {
+    pub fn new(
+        machine: DefaultMachine<'a, Box<AsmCoreMachine>>,
+        aot_code: Option<&'a AotCode>,
+    ) -> Self {
+        Self { machine, aot_code }
+    }
+
+    pub fn set_max_cycles(&mut self, cycles: u64) {
+        self.machine.set_cycles(cycles)
+    }
+
+    pub fn load_program(&mut self, program: &Bytes, args: &[Bytes]) -> Result<u64, Error> {
+        self.machine.load_program(program, args)
+    }
+
+    pub fn run(&mut self) -> Result<i8, Error> {
+        if self.machine.isa() & ISA_MOP != 0 && self.machine.version() == VERSION0 {
+            return Err(Error::InvalidVersion);
+        }
+        let mut decoder = build_decoder::<u64>(self.machine.isa(), self.machine.version());
+        self.machine.set_running(true);
+        while self.machine.running() {
+            if self.machine.reset_signal() {
+                decoder.reset_instructions_cache();
+                self.aot_code = None;
+            }
+            let result = if let Some(aot_code) = &self.aot_code {
+                if let Some(offset) = aot_code.labels.get(self.machine.pc()) {
+                    let base_address = aot_code.base_address();
+                    let offset_address = base_address + u64::from(*offset);
+                    let f = unsafe {
+                        std::mem::transmute::<u64, fn(*mut AsmCoreMachine, u64) -> u8>(base_address)
+                    };
+                    f(&mut (**self.machine.inner_mut()), offset_address)
+                } else {
+                    unsafe { ckb_vm_x64_execute(&mut (**self.machine.inner_mut())) }
+                }
+            } else {
+                unsafe { ckb_vm_x64_execute(&mut (**self.machine.inner_mut())) }
+            };
+            match result {
+                RET_DECODE_TRACE => {
+                    let pc = *self.machine.pc();
+                    let slot = calculate_slot(pc);
+                    let mut trace = Trace::default();
+                    let mut current_pc = pc;
+                    let mut i = 0;
+                    while i < TRACE_ITEM_LENGTH {
+                        let instruction = decoder.decode(self.machine.memory_mut(), current_pc)?;
+                        let end_instruction = is_basic_block_end_instruction(instruction);
+                        current_pc += u64::from(instruction_length(instruction));
+                        trace.instructions[i] = instruction;
+                        trace.cycles += self.machine.instruction_cycle_func()(instruction);
+                        let opcode = extract_opcode(instruction);
+                        // Here we are calculating the absolute address used in direct threading
+                        // from label offsets.
+                        trace.thread[i] = unsafe {
+                            u64::from(
+                                *(ckb_vm_asm_labels as *const u32).offset(opcode as u8 as isize),
+                            ) + (ckb_vm_asm_labels as *const u32 as u64)
+                        };
+                        i += 1;
+                        if end_instruction {
+                            break;
+                        }
+                    }
+                    trace.instructions[i] = blank_instruction(OP_CUSTOM_TRACE_END);
+                    trace.thread[i] = unsafe {
+                        u64::from(
+                            *(ckb_vm_asm_labels as *const u32).offset(OP_CUSTOM_TRACE_END as isize),
+                        ) + (ckb_vm_asm_labels as *const u32 as u64)
+                    };
+                    trace.address = pc;
+                    trace.length = (current_pc - pc) as u8;
+                    self.machine.inner_mut().traces[slot] = trace;
+                }
+                RET_ECALL => self.machine.ecall()?,
+                RET_EBREAK => self.machine.ebreak()?,
+                RET_DYNAMIC_JUMP => (),
+                RET_MAX_CYCLES_EXCEEDED => return Err(Error::CyclesExceeded),
+                RET_CYCLES_OVERFLOW => return Err(Error::CyclesOverflow),
+                RET_OUT_OF_BOUND => return Err(Error::MemOutOfBound),
+                RET_INVALID_PERMISSION => return Err(Error::MemWriteOnExecutablePage),
+                RET_SLOWPATH => {
+                    let pc = *self.machine.pc() - 4;
+                    let instruction = decoder.decode(self.machine.memory_mut(), pc)?;
+                    execute_instruction(instruction, &mut self.machine)?;
+                }
+                _ => return Err(Error::Asm(result)),
+            }
+        }
+        Ok(self.machine.exit_code())
     }
 }

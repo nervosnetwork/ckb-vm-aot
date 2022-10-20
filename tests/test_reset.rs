@@ -1,11 +1,11 @@
-use ckb_vm::machine::asm::{AsmCoreMachine, AsmMachine};
+use ckb_vm::machine::asm::AsmCoreMachine;
 use ckb_vm::machine::{DefaultMachineBuilder, VERSION1};
 use ckb_vm::Bytes;
 use ckb_vm::{
     registers::A7, Error, Register, SupportMachine, Syscalls, DEFAULT_STACK_SIZE, ISA_IMC, ISA_MOP,
     RISCV_MAX_MEMORY,
 };
-use ckb_vm_aot::AotCompilingMachine;
+use ckb_vm_aot::{AotCompilingMachine, AotMachine};
 
 mod machine_build;
 
@@ -57,7 +57,7 @@ pub fn test_reset_aot() {
         .instruction_cycle_func(&machine_build::instruction_cycle_func)
         .syscall(Box::new(CustomSyscall {}))
         .build();
-    let mut machine = AsmMachine::new(core, Some(&code));
+    let mut machine = AotMachine::new(core, Some(&code));
     machine.load_program(&buffer, &vec![]).unwrap();
 
     let result = machine.run();

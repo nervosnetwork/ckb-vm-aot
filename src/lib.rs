@@ -11,4 +11,4 @@ mod label_gather;
 #[cfg(has_aot)]
 pub use error::AotError;
 #[cfg(has_aot)]
-pub use label_gather::AotCompilingMachine;
+pub use label_gather::{AotCode, AotCompilingMachine, AotMachine};

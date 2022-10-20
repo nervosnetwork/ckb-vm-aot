@@ -11,8 +11,10 @@ exclude = ["/benches", "/tests"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ckb-vm = { git = "https://github.com/mohanson/ckb-vm", branch="remove_aot", features = ["asm"] }
-ckb-vm-definitions = { git = "https://github.com/mohanson/ckb-vm", branch="remove_aot" }
+# ckb-vm = { git = "https://github.com/mohanson/ckb-vm", branch="remove_aot", features = ["asm"] }
+# ckb-vm-definitions = { git = "https://github.com/mohanson/ckb-vm", branch="remove_aot" }
+ckb-vm = { path = "/home/ubuntu/src/ckb-vm", features = ["asm"] }
+ckb-vm-definitions = { path = "/home/ubuntu/src/ckb-vm/definitions" }
 derive_more = "0.99.2"
 goblin_v023 = { package = "goblin", version = "=0.2.3" }
 goblin_v040 = { package = "goblin", version = "=0.4.0" }

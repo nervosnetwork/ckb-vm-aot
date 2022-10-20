@@ -3,13 +3,10 @@ extern crate criterion;
 
 use ckb_vm::Bytes;
 use ckb_vm::{
-    machine::{
-        asm::{AsmCoreMachine, AsmMachine},
-        DefaultMachineBuilder, VERSION0,
-    },
+    machine::{asm::AsmCoreMachine, DefaultMachineBuilder, VERSION0},
     ISA_IMC,
 };
-use ckb_vm_aot::AotCompilingMachine;
+use ckb_vm_aot::{AotCompilingMachine, AotMachine};
 use criterion::Criterion;
 use std::fs;
 
@@ -27,7 +24,7 @@ fn aot_benchmark(c: &mut Criterion) {
         b.iter(|| {
             let asm_core = AsmCoreMachine::new(ISA_IMC, VERSION0, u64::max_value());
             let core = DefaultMachineBuilder::new(asm_core).build();
-            let mut machine = AsmMachine::new(core, Some(&result));
+            let mut machine = AotMachine::new(core, Some(&result));
             machine.load_program(&buffer, &args[..]).unwrap();
             machine.run().unwrap()
         });

@@ -1,12 +1,12 @@
 use ckb_vm::instructions::{extract_opcode, insts};
-use ckb_vm::machine::asm::{AsmCoreMachine, AsmMachine};
+use ckb_vm::machine::asm::AsmCoreMachine;
 use ckb_vm::machine::VERSION1;
 use ckb_vm::registers::{A0, A1, A7};
 use ckb_vm::{
     Bytes, CoreMachine, DefaultMachineBuilder, Error, Instruction, Memory, Register,
     SupportMachine, Syscalls, ISA_B, ISA_IMC, ISA_MOP,
 };
-use ckb_vm_aot::AotCompilingMachine;
+use ckb_vm_aot::{AotCompilingMachine, AotMachine};
 
 pub fn instruction_cycles(i: Instruction) -> u64 {
     match extract_opcode(i) {
@@ -105,7 +105,7 @@ fn main_aot(code: Bytes, args: Vec<Bytes>) -> Result<(), Box<dyn std::error::Err
         .instruction_cycle_func(&instruction_cycles)
         .syscall(Box::new(DebugSyscall {}))
         .build();
-    let mut machine = AsmMachine::new(core, Some(&aot_code));
+    let mut machine = AotMachine::new(core, Some(&aot_code));
     machine.load_program(&code, &args)?;
     let exit = machine.run();
     let cycles = machine.machine.cycles();

@@ -15,8 +15,6 @@ jobs:
       vmImage: 'windows-2019'
     steps:
       - template: devtools/azure/windows-dependencies.yml
-        parameters:
-          rustup_toolchain: '1.61.0-x86_64-pc-windows-msvc'
       - script: make ci
         displayName: Run unit tests
 
@@ -25,8 +23,6 @@ jobs:
       vmImage: 'macOS-11'
     steps:
       - template: devtools/azure/osx-dependencies.yml
-        parameters:
-          rustup_toolchain: '1.61.0-x86_64-apple-darwin'
       - script: make ci
         displayName: Run unit tests
 
@@ -35,8 +31,6 @@ jobs:
       vmImage: 'ubuntu-20.04'
     steps:
       - template: devtools/azure/linux-dependencies.yml
-        parameters:
-          rustup_toolchain: '1.61.0-x86_64-unknown-linux-gnu'
       - script: make ci
         displayName: Run ci
 
@@ -45,8 +39,6 @@ jobs:
       vmImage: 'ubuntu-18.04'
     steps:
       - template: devtools/azure/linux-dependencies.yml
-        parameters:
-          rustup_toolchain: '1.61.0-x86_64-unknown-linux-gnu'
       - script: |
           sudo apt install -y git \
                               build-essential \
