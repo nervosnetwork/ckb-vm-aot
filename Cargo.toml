@@ -1,7 +1,7 @@
 [package]
 name = "ckb-vm-aot"
 description = "CKB's Virtual machine"
-version = "0.21.7"
+version = "0.22.0"
 license = "MIT"
 authors = ["Nervos Core Dev <dev@nervos.org>"]
 edition = "2021"
@@ -11,10 +11,8 @@ exclude = ["/benches", "/tests"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-# ckb-vm = { git = "https://github.com/mohanson/ckb-vm", branch="remove_aot", features = ["asm"] }
-# ckb-vm-definitions = { git = "https://github.com/mohanson/ckb-vm", branch="remove_aot" }
-ckb-vm = { path = "/home/ubuntu/src/ckb-vm", features = ["asm"] }
-ckb-vm-definitions = { path = "/home/ubuntu/src/ckb-vm/definitions" }
+ckb-vm = { version = "0.22.0", features = ["asm"] }
+ckb-vm-definitions = { version = "0.22.0" }
 derive_more = "0.99.2"
 goblin_v023 = { package = "goblin", version = "=0.2.3" }
 goblin_v040 = { package = "goblin", version = "=0.4.0" }
