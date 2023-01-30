@@ -26,7 +26,7 @@ pub fn aot_v1_imcb<'a>(path: &str, code: &'a AotCode) -> AotMachine<'a> {
 
     let asm_core = AsmCoreMachine::new(ISA_IMC | ISA_B, VERSION1, u64::max_value());
     let core = DefaultMachineBuilder::<Box<AsmCoreMachine>>::new(asm_core)
-        .instruction_cycle_func(&instruction_cycle_func)
+        .instruction_cycle_func(Box::new(instruction_cycle_func))
         .build();
     let mut machine = AotMachine::new(core, Some(code));
     machine
@@ -54,7 +54,7 @@ pub fn aot_v1_mop<'a>(path: &str, args: Vec<Bytes>, code: &'a AotCode) -> AotMac
 
     let asm_core = AsmCoreMachine::new(ISA_IMC | ISA_B | ISA_MOP, VERSION1, u64::max_value());
     let core = DefaultMachineBuilder::<Box<AsmCoreMachine>>::new(asm_core)
-        .instruction_cycle_func(&instruction_cycle_func)
+        .instruction_cycle_func(Box::new(instruction_cycle_func))
         .build();
     let mut argv = vec![Bytes::from("main")];
     argv.extend_from_slice(&args);

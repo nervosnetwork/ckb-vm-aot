@@ -54,7 +54,7 @@ pub fn test_reset_aot() {
 
     let asm_core = AsmCoreMachine::new(ISA_IMC | ISA_MOP, VERSION1, u64::max_value());
     let core = DefaultMachineBuilder::<Box<AsmCoreMachine>>::new(asm_core)
-        .instruction_cycle_func(&machine_build::instruction_cycle_func)
+        .instruction_cycle_func(Box::new(machine_build::instruction_cycle_func))
         .syscall(Box::new(CustomSyscall {}))
         .build();
     let mut machine = AotMachine::new(core, Some(&code));

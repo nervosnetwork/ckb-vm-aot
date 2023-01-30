@@ -808,13 +808,13 @@ impl Memory for AotCompilingMachine {
 }
 
 pub struct AotMachine<'a> {
-    pub machine: DefaultMachine<'a, Box<AsmCoreMachine>>,
+    pub machine: DefaultMachine<Box<AsmCoreMachine>>,
     pub aot_code: Option<&'a AotCode>,
 }
 
 impl<'a> AotMachine<'a> {
     pub fn new(
-        machine: DefaultMachine<'a, Box<AsmCoreMachine>>,
+        machine: DefaultMachine<Box<AsmCoreMachine>>,
         aot_code: Option<&'a AotCode>,
     ) -> Self {
         Self { machine, aot_code }

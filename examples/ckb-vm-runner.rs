@@ -102,7 +102,7 @@ fn main_aot(code: Bytes, args: Vec<Bytes>) -> Result<(), Box<dyn std::error::Err
     let aot_code = aot_machine.compile()?;
     let asm_core = AsmCoreMachine::new(ISA_IMC | ISA_B | ISA_MOP, VERSION1, u64::MAX);
     let core = DefaultMachineBuilder::<Box<AsmCoreMachine>>::new(asm_core)
-        .instruction_cycle_func(&instruction_cycles)
+        .instruction_cycle_func(Box::new(instruction_cycles))
         .syscall(Box::new(DebugSyscall {}))
         .build();
     let mut machine = AotMachine::new(core, Some(&aot_code));
